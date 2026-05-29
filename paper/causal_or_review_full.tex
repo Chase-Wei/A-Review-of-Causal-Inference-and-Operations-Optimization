@@ -1,0 +1,740 @@
+\documentclass[11pt]{article}
+
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage[authoryear,round]{natbib}
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    citecolor=blue,
+    urlcolor=blue
+}
+
+\title{\textbf{Causal Inference and Operations Research: A Review of Causal Prescriptive Analytics, Policy Learning, and Robust Decision Optimization}}
+\author{}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Operations research (OR) has increasingly become data-driven. Demand distributions, response models, cost parameters, treatment effects, transition probabilities, and behavioral primitives are often estimated from historical data and then embedded in optimization models. Yet many operational decisions are not passive forecasts: they are interventions that change the outcomes being optimized. A coupon changes purchasing behavior; a treatment changes health outcomes; a price changes demand; a staffing policy changes waiting times; a platform subsidy changes marketplace participation. This observation creates a natural interface between causal inference and OR. Causal inference defines and identifies interventional quantities such as potential outcomes, treatment effects, policy values, and counterfactual trajectories. OR provides optimization models for choosing feasible actions under resource, capacity, risk, fairness, and implementation constraints.
+
+This review surveys the emerging literature at this interface. We distinguish two broad directions: OR for causal inference, where optimization improves causal estimation and experimental design, and causal inference for OR, where causal quantities become inputs to prescriptive decision models. We organize the field into seven streams: optimization-based causal estimation, heterogeneous treatment effect estimation, causal resource allocation, empirical welfare maximization and policy learning, causal prescriptive analytics and decision-focused learning, robust causal optimization under hidden confounding, and sequential causal decision making. For each stream, we discuss the problem setting, representative papers, methodological contributions, operational relevance, and limitations. We also synthesize applications in marketing, healthcare, supply chains, public policy, digital platforms, and empirical operations management. The review concludes with a research agenda emphasizing estimation-to-optimization error, multi-action interventions, fairness-aware causal allocation, robust causal ambiguity sets, decision-oriented experimental design, and the integration of causal identification with dynamic optimization.
+\end{abstract}
+
+\noindent\textbf{Keywords:} causal inference; operations research; prescriptive analytics; policy learning; heterogeneous treatment effects; robust optimization; resource allocation; experimental design; offline policy evaluation.
+
+\tableofcontents
+\newpage
+
+\section{Introduction}
+
+Operations research and management science have traditionally been prescriptive disciplines. Their central questions concern what should be done: how much inventory should be held, where should a facility be located, which customers should be targeted, what price should be charged, which patients should receive scarce care, and how should capacity be scheduled \citep{bertsimas1997introduction,simchi2004managing,gallego1994optimal}. Classical OR models typically assume that the relevant primitives, such as costs, demands, transition probabilities, service times, and rewards, are known or can be specified exogenously. With the growth of operational data, these primitives are increasingly estimated from historical data, giving rise to data-driven optimization and prescriptive analytics \citep{bertsimas2020predictive,misic2020data,choi2018bigdata}.
+
+The data-driven turn has improved the empirical relevance of OR models, but it also raises a basic causal question. Historical data are generated under a policy: a firm used a pricing rule, a hospital used a triage rule, a platform used a ranking algorithm, or a manager used private judgment. A prediction model fitted to such data estimates outcomes under that historical data-generating process. A decision model, however, asks what would happen under a different action or policy. The gap between these two questions is precisely the gap between prediction and causation \citep{rubin1974estimating,holland1986statistics,pearl2009causality,imbens2015causal,hernan2020causal}.
+
+This distinction is not semantic. In marketing, targeting customers with the highest purchase probability may waste discounts on customers who would have purchased without intervention. The causal quantity is the incremental effect of the discount on purchase or profit \citep{fernandez2022causal,leporeni2023causally}. In healthcare operations, targeting patients with the highest baseline risk may not maximize health improvement if those patients have low treatment responsiveness; the relevant quantity is the expected improvement caused by the intervention \citep{murphy2003dynamic,zhang2012robust}. In supply chain management, a predictive model may learn that expedited shipments are associated with late deliveries because managers expedite when they anticipate problems; the causal effect of expediting may be beneficial even if the observational association is negative \citep{ho2017causal}. These examples show why OR models that use observational associations as if they were intervention effects can prescribe poor decisions.
+
+Causal inference provides formal tools for this problem. The potential outcomes framework defines outcomes under alternative actions and treatment effects as comparisons of such potential outcomes \citep{rubin1974estimating,holland1986statistics,imbens2015causal}. Structural causal models represent interventions through structural equations and directed graphs \citep{pearl2009causality}. Modern causal inference also provides tools for observational studies, quasi-experiments, time-varying treatments, and sensitivity analysis \citep{rosenbaum1983central,angrist2009mostly,rosenbaum2002observational,hernan2020causal}. OR contributes a complementary set of tools: constrained optimization, stochastic programming, robust optimization, dynamic programming, and integer programming \citep{bertsimas1997introduction,ben2009robust,bertsimas2011theory,iyengar2005robust}.
+
+The intersection of these fields can be viewed from two directions. The first is \emph{OR for causal inference}: optimization can improve matching, weighting, balance, synthetic control, and experimental design \citep{abadie2010synthetic,hainmueller2012entropy,kallus2018balance,cousineau2023optimization}. The second is \emph{causal inference for OR}: treatment effects, policy values, counterfactual outcomes, and interventional distributions can become primitives in optimization models \citep{manski2004statistical,kitagawa2018treated,athey2021policy,bertsimas2020predictive,kallus2018confounding}. The second direction is the main focus of this review because it addresses the prescriptive core of OR.
+
+The review is organized as follows. Section \ref{sec:framework} develops a unifying framework. Sections \ref{sec:estimation}--\ref{sec:sequential} review seven research streams. Section \ref{sec:applications} discusses application domains. Section \ref{sec:synthesis} synthesizes the literature and identifies gaps. Section \ref{sec:agenda} proposes a research agenda for OR scholars. Section \ref{sec:conclusion} concludes.
+
+\subsection{Positioning Relative to Existing Reviews}
+
+Several adjacent literatures motivate this review but do not fully cover its scope. Empirical operations management has adopted causal inference to estimate the effects of operational practices, but its primary object is usually causal identification rather than prescriptive optimization \citep{ho2017causal}. Data analytics reviews in operations management describe the integration of machine learning with OR models, but they often treat estimated predictive models as inputs and do not center the distinction between observational and interventional quantities \citep{misic2020data,choi2018bigdata}. Causal inference texts provide rigorous foundations for identification and estimation, but they do not usually focus on operational feasibility, capacity constraints, integer decisions, or robust optimization \citep{imbens2015causal,hernan2020causal,pearl2009causality}. Policy learning and empirical welfare maximization are closer to prescriptive decision making, but much of that literature abstracts from the richer constraints common in OR applications \citep{manski2004statistical,kitagawa2018treated,athey2021policy}.
+
+This review therefore occupies a specific middle ground. It is not a general introduction to causal inference, nor a comprehensive survey of data-driven OR. Instead, it asks how causal quantities should be used inside optimization models. This perspective is useful for OR researchers because it translates causal inference into familiar objects: objective coefficients, feasible sets, uncertainty sets, regret bounds, dynamic programs, and experiment-design constraints. It is also useful for causal-inference researchers because it emphasizes that the final managerial object is often not an effect estimate, but an implementable decision.
+
+\section{A Framework for Causal Decision Optimization}
+\label{sec:framework}
+
+\subsection{Observed Outcomes, Potential Outcomes, and Decisions}
+
+Let $X$ denote observed covariates, $A$ an action or treatment, and $Y$ an outcome. A predictive model estimates quantities such as
+\[
+    m(x)=\mathbb{E}[Y\mid X=x].
+\]
+Such a model may be valuable for forecasting, but it is not sufficient for intervention choice when $A$ affects $Y$. In the potential outcomes framework, $Y(a)$ denotes the outcome that would be observed if action $a$ were taken \citep{rubin1974estimating,imbens2015causal}. The causal response function is
+\[
+    \mu(a,x)=\mathbb{E}[Y(a)\mid X=x].
+\]
+The central issue is that $\mathbb{E}[Y\mid A=a,X=x]$ generally differs from $\mathbb{E}[Y(a)\mid X=x]$ when treatment assignment is confounded \citep{rosenbaum1983central,pearl2009causality,hernan2020causal}. This difference is common in operations because actions are frequently selected by managers, physicians, algorithms, or customers using information not fully available to the analyst \citep{ho2017causal}.
+
+If a policy $\pi$ maps covariates to actions, its value is
+\[
+    V(\pi)=\mathbb{E}[Y(\pi(X))].
+\]
+The causal policy learning problem is
+\[
+    \max_{\pi\in\Pi} V(\pi),
+\]
+where $\Pi$ is a class of implementable policies \citep{manski2004statistical,kitagawa2018treated,athey2021policy}. OR typically adds constraints:
+\[
+    \max_{\pi\in\Pi} V(\pi)
+    \quad\text{s.t.}\quad
+    \mathbb{E}[c_j(\pi(X),X)]\le B_j,\quad j=1,\ldots,J.
+\]
+This formulation makes explicit the division of labor. Causal inference defines and identifies $V(\pi)$; OR defines the feasible set, objective tradeoffs, and computational procedure.
+
+\subsection{Identification, Estimation, and Optimization}
+
+The literature can be decomposed into three layers. The identification layer asks whether the causal estimand is recoverable from the available data. Randomized experiments identify treatment effects through design; observational studies often rely on unconfoundedness, instrumental variables, regression discontinuity, difference-in-differences, or structural assumptions \citep{rosenbaum1983central,angrist2009mostly,imbens2015causal,hernan2020causal}. In operations, identification is difficult because treatment assignment is often endogenous and shaped by operational judgment \citep{ho2017causal}.
+
+The estimation layer studies how to estimate treatment effects, policy values, or nuisance functions from finite samples. Standard tools include matching, propensity-score weighting, regression adjustment, doubly robust estimation, double/debiased machine learning, causal forests, generalized random forests, and representation learning \citep{rosenbaum1983central,chernozhukov2018dml,wager2018causalforest,athey2019grf,shalit2017estimating}. These methods differ in their assumptions, flexibility, and asymptotic guarantees.
+
+The optimization layer chooses actions using estimated or bounded causal quantities. In OR terms, this layer contains integer programs, stochastic programs, robust counterparts, empirical risk minimization problems, policy search problems, and dynamic programs \citep{bertsimas1997introduction,kitagawa2018treated,bertsimas2020predictive,ben2009robust,murphy2003dynamic}. The key point is that estimation and optimization losses are different. A method that estimates treatment effects accurately on average may still produce poor decisions if it misranks units near a resource cutoff \citep{fernandez2022causal,athey2021policy}. Conversely, an estimator with modest global error may yield good policies if it preserves the relevant treatment-choice boundary \citep{kitagawa2018treated}.
+
+\subsection{Why the Intersection Is Not Just ``Estimate Then Optimize''}
+
+A common workflow is to estimate heterogeneous treatment effects and then solve an optimization model using the point estimates. This plug-in approach is intuitive, but it hides several difficulties. First, causal identification assumptions determine whether the treatment effects are meaningful for decision making \citep{imbens2015causal,hernan2020causal}. Second, estimation uncertainty can change optimal allocations when effects are close to thresholds \citep{kitagawa2018treated,athey2021policy}. Third, real operational constraints can make the best feasible policy differ from the unconstrained policy implied by treatment-effect ranking \citep{bertsimas2020predictive}. Fourth, hidden confounding can invalidate policy improvements unless sensitivity or robust methods are used \citep{rosenbaum2002observational,kallus2018confounding}.
+
+For these reasons, causal decision optimization should be treated as an integrated problem. The analyst must ask: what is the intervention, what is the estimand, what assumptions identify it, how uncertain is the estimate, what decisions are feasible, and what loss is incurred if the policy is wrong? This integrated perspective underlies the research streams reviewed below.
+
+\subsection{A Generic Modeling Pipeline}
+
+A useful way to organize causal-OR studies is through a six-step pipeline. First, the analyst defines the operational decision and the intervention set. This step is nontrivial because many operational actions are not binary treatments. Prices, discounts, staff levels, inventory quantities, and service intensities are often continuous or multi-level decisions \citep{gallego1994optimal,bertsimas2020predictive}. Second, the analyst defines the causal estimand. For a binary intervention, this may be a treatment effect; for a policy, it may be a policy value; for a dynamic system, it may be a counterfactual trajectory distribution \citep{murphy2003dynamic,hernan2020causal}. Third, the analyst states identification assumptions. These may come from randomization, unconfoundedness, quasi-experimental variation, structural modeling, or sensitivity analysis \citep{rosenbaum1983central,angrist2009mostly,pearl2009causality,rosenbaum2002observational}.
+
+Fourth, the analyst estimates the causal quantities with uncertainty. This can involve matching, weighting, doubly robust estimation, causal forests, or other causal machine-learning tools \citep{hainmueller2012entropy,chernozhukov2018dml,wager2018causalforest,athey2019grf}. Fifth, the analyst embeds the resulting quantities in an optimization problem. This is where OR enters most directly: the model may be a knapsack problem, assignment problem, stochastic program, robust counterpart, or dynamic program \citep{bertsimas1997introduction,ben2009robust,iyengar2005robust}. Sixth, the analyst validates the decision. Validation should include not only statistical fit but also feasibility, robustness, interpretability, and expected regret \citep{kitagawa2018treated,fernandez2022causal,athey2021policy}.
+
+The pipeline clarifies why causal-OR research is demanding. A sophisticated integer program is not useful if its objective coefficients are observational correlations. A rigorous causal estimator is incomplete if the resulting rule violates capacity constraints. A robust policy is difficult to interpret if the ambiguity set has no operational meaning. Strong contributions in this area should make these links explicit rather than treating estimation and optimization as separate black boxes.
+
+\section{Optimization-Based Causal Estimation}
+\label{sec:estimation}
+
+\subsection{Matching, Weighting, and Balance as Optimization}
+
+One of the earliest and most mature links between OR and causal inference is the use of optimization to construct comparable treatment and control groups. Propensity-score methods reduce covariate imbalance by conditioning or weighting on the probability of treatment, a foundational idea due to \citet{rosenbaum1983central}. Matching methods attempt to pair treated and control units with similar covariates; this task can be represented as an assignment or network-flow problem when the objective is to minimize covariate distance subject to matching constraints \citep{cousineau2023optimization}. From an OR viewpoint, matching is naturally combinatorial: one chooses edges between treated and control units under feasibility constraints.
+
+Weighting methods pursue balance by assigning weights to observations. Entropy balancing, for example, chooses weights that satisfy moment-balance constraints while staying close to uniform weights in an entropy sense \citep{hainmueller2012entropy}. This is a convex optimization problem with a clear causal interpretation: balance covariates so that weighted control outcomes can approximate counterfactual treated outcomes under selection-on-observables assumptions. The review by \citet{cousineau2023optimization} systematically compares optimization-based causal estimators and shows how many design and analysis choices can be expressed as mathematical programs.
+
+Synthetic control is another optimization-based estimator. It constructs a weighted combination of control units to approximate the pre-treatment trajectory of a treated unit, and then uses the post-treatment difference as the estimated effect \citep{abadie2010synthetic}. The weight selection problem is a constrained optimization problem, and its success depends on whether the weighted controls reproduce the treated unit's counterfactual trajectory. Synthetic control has been especially influential in comparative case studies and policy evaluation \citep{abadie2010synthetic}.
+
+\subsection{Experimental Design and Balance}
+
+Optimization also appears before data collection. Randomized experiments identify causal effects by design, but finite-sample imbalance can reduce precision. \citet{kallus2018balance} studies optimal a priori balance in controlled experiments and formulates experimental design as a minimax optimization problem. The idea is to select assignments that minimize worst-case imbalance over a function class, thereby improving precision without sacrificing randomization-based validity \citep{kallus2018balance}. This line of work connects causal experimental design with minimax optimization, kernel methods, and robust design.
+
+For OR, optimized experimental design is important because experiments in operational systems are constrained. A platform cannot always randomize all users freely; a hospital may face ethical limits; a supply chain may face capacity constraints. Optimization provides a language for designing feasible experiments while preserving the ability to identify treatment effects \citep{kallus2018balance}. This is a natural bridge between causal inference and OR, although much of the literature still focuses on estimation rather than downstream operational decisions.
+
+\subsection{Limitations for Prescriptive Decision Making}
+
+Optimization-based estimation improves causal credibility, but it does not by itself answer the prescriptive OR question. A well-balanced estimate of an average treatment effect may be insufficient when the decision maker must allocate scarce treatment across heterogeneous units. Similarly, a synthetic control estimate may identify the effect of a past policy but not prescribe a future policy under capacity constraints. Thus, this stream should be viewed as the upstream foundation of causal OR, not the whole field \citep{cousineau2023optimization,fernandez2022causal}.
+
+An important implication is that the estimand should be chosen with the downstream decision in mind. If the operational problem is whether to launch a policy everywhere, an average treatment effect may be appropriate. If the problem is targeted allocation, conditional effects or policy values are more relevant. If the problem is robust decision making under hidden confounding, partial identification bounds may be more useful than a single point estimate \citep{rosenbaum2002observational,kallus2018confounding}. This decision-aware view of causal estimation is still not standard in empirical operations studies, where reporting treatment effects often stops before the prescription stage \citep{ho2017causal}.
+
+\section{Heterogeneous Treatment Effects for Operational Targeting}
+\label{sec:hte}
+
+\subsection{From Average Effects to Heterogeneity}
+
+Average treatment effects are useful for policy evaluation, but operational decisions often require individualized or segmented decisions. The conditional average treatment effect
+\[
+    \tau(x)=\mathbb{E}[Y(1)-Y(0)\mid X=x]
+\]
+describes how treatment benefits vary across units. Such heterogeneity is central to targeting: a firm wants to target customers whose behavior changes because of a coupon; a hospital wants to prioritize patients who benefit most from an intervention; a maintenance manager wants to service assets for which maintenance reduces failure risk enough to justify cost \citep{fernandez2022causal,leporeni2023causally}.
+
+The HTE literature provides a rich set of tools. \citet{athey2016recursive} adapt recursive partitioning to discover subgroups with different causal effects. \citet{wager2018causalforest} develop causal forests for estimation and inference of heterogeneous treatment effects, using random forests designed for causal targets rather than prediction alone. \citet{athey2019grf} generalize the forest approach to local moment estimation, extending the framework beyond simple treatment-effect estimation. \citet{chernozhukov2018dml} develop double/debiased machine learning, which uses orthogonal scores and cross-fitting to reduce regularization bias in causal estimation with high-dimensional nuisance functions. \citet{shalit2017estimating} approach individual treatment effect estimation through representation learning and generalization bounds.
+
+\subsection{Decision Relevance and Ranking}
+
+HTE estimation is appealing for OR because it creates unit-level benefit estimates. However, HTE estimation and operational targeting are not the same task. A prediction model ranks units by baseline outcomes; a causal model ranks them by incremental response. \citet{fernandez2022causal} emphasize that causal effect estimation and causal decision making have different objectives. For example, high-risk patients are not necessarily high-benefit patients, and high-purchase-probability customers are not necessarily high-uplift customers \citep{fernandez2022causal,leporeni2023causally}.
+
+The decision relevance of HTE estimates depends on the downstream optimization problem. If a decision maker can treat everyone with positive effect, accurate sign estimation may matter most. If the decision maker can treat only a small fraction, ranking in the upper tail matters. If there are group-level fairness constraints, treatment-effect estimates within protected groups matter. If intervention costs differ, the relevant quantity may be benefit-cost ratio rather than treatment effect alone. These distinctions are not always reflected in statistical estimation criteria such as mean-squared error for $\tau(x)$ \citep{kitagawa2018treated,athey2021policy}.
+
+\subsection{Implications for OR Models}
+
+For OR researchers, HTE estimation is best understood as a way to construct decision primitives. It provides estimated benefit coefficients, confidence intervals, or score functions that can be embedded in allocation, scheduling, or policy-optimization models. Yet the OR contribution begins when these estimates meet constraints. A CATE model alone does not decide how to allocate limited capacity across regions, how to satisfy fairness constraints, or how to hedge against estimation uncertainty. These tasks require optimization models that are sensitive to the causal origin of the coefficients \citep{ben2009robust,athey2021policy}.
+
+There is also a subtle interaction between heterogeneity and data support. Positivity requires that each relevant subgroup have sufficient probability of receiving each action \citep{imbens2015causal,hernan2020causal}. Operational policies often violate this requirement because certain actions are rarely used in certain regions of the covariate space. For example, high-risk patients may almost always receive intensive care, making it hard to estimate what would happen without it. Premium customers may almost always receive retention offers, making it hard to estimate untreated outcomes for that group. Thus, the units that matter most for optimization may be precisely the units for which causal estimates are least reliable. This creates an OR-relevant value-of-information question: should the decision maker experiment in poorly supported regions to improve future decisions?
+
+\subsection{What Representative HTE Papers Actually Do}
+
+\citet{athey2016recursive} modify regression trees for causal questions. A prediction tree splits data to reduce prediction error in $Y$; a causal tree splits data to find leaves with different treatment effects. The method separates the data used to choose the tree from the data used to estimate treatment effects in leaves, a procedure called honesty. In a leaf $\ell$, the treatment effect is estimated as
+\[
+    \hat{\tau}(\ell)
+    =
+    \frac{1}{|\ell_1|}\sum_{i\in \ell:A_i=1}Y_i
+    -
+    \frac{1}{|\ell_0|}\sum_{i\in \ell:A_i=0}Y_i,
+\]
+with splitting criteria designed to find heterogeneity in $\tau(x)$ rather than heterogeneity in $Y$. The contribution is interpretability: the output is a segmentation of the population into groups with different estimated effects. The limitation is that a single tree can be unstable and may have limited predictive accuracy for fine-grained targeting \citep{athey2016recursive}.
+
+\citet{wager2018causalforest} extend this idea to forests. A causal forest averages many honest causal trees and estimates $\tau(x)$ locally using nearby observations determined by forest weights. The estimator can be written schematically as
+\[
+    \hat{\tau}(x)
+    =
+    \sum_{i=1}^{n}\alpha_i(x)Y_i^{(1)}
+    -
+    \sum_{i=1}^{n}\beta_i(x)Y_i^{(0)},
+\]
+where the weights are induced by how often observation $i$ falls in the same tree leaves as $x$. The paper develops asymptotic normality and confidence intervals, making it useful not only for ranking units but also for uncertainty-aware decisions \citep{wager2018causalforest}. For OR, the important point is that causal forests provide both point estimates and uncertainty information that can be embedded in robust allocation models.
+
+\citet{athey2019grf} generalize causal forests to local moment equations. Instead of estimating only treatment effects, generalized random forests solve local estimating equations of the form
+\[
+    \mathbb{E}[\psi_{\theta(x)}(Z)\mid X=x]=0.
+\]
+Treatment effects are one example, but the framework also covers instrumental variables and other heterogeneous parameters. This matters for causal OR because operational decision primitives may not always be simple binary-treatment effects. They may be price sensitivities, local elasticities, or heterogeneous structural parameters.
+
+\citet{chernozhukov2018dml} develop double/debiased machine learning. Their central idea is to use orthogonal scores so that first-stage machine-learning errors in nuisance functions have only second-order effects on the target parameter. For treatment effects, a typical orthogonal score uses both outcome regressions and propensity scores. This is important when flexible ML models are used to estimate nuisance components. For OR, DML is useful because it produces causal estimates that can be more stable under high-dimensional covariates, but it still does not solve the downstream optimization problem \citep{chernozhukov2018dml}.
+
+\citet{shalit2017estimating} approach individual treatment-effect estimation by learning representations that balance treated and control groups. The method penalizes imbalance between treated and control representations while predicting factual outcomes. Its objective can be viewed as combining factual loss and a distributional distance between representations. This line is useful for high-dimensional observational data, but its use in OR requires care: good counterfactual prediction does not automatically imply good constrained decisions.
+
+\section{Causal Resource Allocation}
+\label{sec:allocation}
+
+\subsection{Basic Allocation Model}
+
+Causal resource allocation is perhaps the clearest OR problem in this field. Suppose a decision maker observes $n$ units, each with estimated causal benefit $\tau_i$ and intervention cost $c_i$. A basic binary allocation model is
+\[
+    \max_{z\in\{0,1\}^n} \sum_{i=1}^{n}\tau_i z_i
+    \quad
+    \text{s.t.}\quad
+    \sum_{i=1}^{n}c_i z_i \le B.
+\]
+This is a knapsack problem whose objective coefficients are causal benefits rather than predicted outcomes. It captures budgeted treatment assignment in marketing, healthcare outreach, social programs, and maintenance \citep{kitagawa2018treated,athey2021policy,fernandez2022causal}.
+
+The basic model is simple, but its conceptual contribution is significant. It replaces the common practice of targeting by predicted risk or predicted demand with targeting by incremental causal value. In marketing, the policy should not necessarily treat likely buyers; it should treat customers whose purchase behavior is changed by treatment \citep{fernandez2022causal}. In healthcare, the scarce intervention should not necessarily go to the highest-risk patients if lower-risk patients are more responsive \citep{murphy2003dynamic,zhang2012robust}. In maintenance, the best asset to inspect is not necessarily the most failure-prone asset if inspection does not meaningfully reduce risk.
+
+The same logic applies when treatment costs vary. If $c_i$ differs across units, the correct ranking is not simply by $\tau_i$ but by the marginal value of treatment relative to cost and constraints. In a single-budget knapsack problem, benefit-cost ratios may be informative, but they are not generally optimal under multiple resources, group constraints, or network coupling \citep{bertsimas1997introduction}. This point matters for operations because interventions often consume heterogeneous resources. A medical outreach intervention may require different staff time across patients; a coupon may have different expected redemption cost across customers; a maintenance intervention may require different downtime across machines.
+
+\subsection{Beyond Knapsack}
+
+Real operational allocation problems are rarely simple knapsacks. Multiple scarce resources produce multidimensional knapsack or generalized assignment models. Geographical, network, or service-region restrictions introduce coupling constraints. Capacity constraints in healthcare or service systems can link decisions through queues or schedules. Fairness requirements can impose lower or upper bounds on treatment rates or benefits across groups. Cost uncertainty and treatment-effect uncertainty can motivate stochastic or robust formulations \citep{bertsimas1997introduction,ben2009robust,bertsimas2011theory}.
+
+These extensions create a genuine OR research agenda. Existing policy learning papers often allow simple policy classes or budget constraints, but operational feasibility can be much richer \citep{kitagawa2018treated,athey2021policy}. For example, a public agency may need to allocate treatment slots across neighborhoods while ensuring minimum service levels, limiting travel costs, and respecting legal requirements. A platform may need to target subsidies while maintaining supply-demand balance. A hospital may need to allocate outreach while accounting for staff schedules and clinic capacity. In each case, the causal effect estimates are only one part of the optimization problem.
+
+\subsection{Fairness and Equity in Allocation}
+
+Fairness is particularly important in causal resource allocation. A purely efficiency-oriented model may allocate treatment to units with the highest estimated benefit, but this can reproduce or amplify inequities if treatment effects, costs, or uncertainty differ across groups. A fairness constraint can be imposed on treatment rates, expected outcomes, causal benefits, or regret. These definitions lead to different optimization problems. Equal treatment rates across groups may be simple to impose but may not equalize causal gains. Equalizing expected gains may improve equity in benefits but may require unequal treatment rates. Equalizing counterfactual outcomes requires stronger causal modeling assumptions \citep{athey2021policy,hernan2020causal}.
+
+This issue is not only ethical but also methodological. If one group is underrepresented in historical data, treatment-effect estimates for that group may be more uncertain. A plug-in allocation model may avoid that group because estimated benefits appear lower or noisier, even when the true benefit is high. Robust or exploration-aware allocation may therefore be needed to avoid systematically under-treating groups with weaker data support. This connection between causal uncertainty and fairness is a promising direction for OR because it combines statistical uncertainty, resource constraints, and normative constraints in a single model.
+
+\subsection{Uncertainty in Causal Benefits}
+
+Plug-in allocation treats $\hat{\tau}_i$ as known. This is often unjustified. If two units have similar estimated benefits but different uncertainty, a risk-neutral plug-in model and a robust model may choose different allocations. If errors are correlated across groups, group-level constraints may amplify estimation error. If treatment effects are estimated from observational data, hidden confounding can shift the sign or magnitude of benefits \citep{rosenbaum2002observational,kallus2018confounding}.
+
+OR offers several tools for this problem. Robust optimization can protect against adverse treatment-effect realizations within uncertainty sets \citep{ben2009robust,bertsimas2011theory}. Stochastic programming can optimize expected performance under posterior or sampling distributions. Chance constraints can require the probability of poor performance to remain below a threshold. Distributionally robust optimization can hedge against uncertainty in the joint distribution of benefits and covariates. The challenge is to construct uncertainty sets that reflect causal estimation error rather than arbitrary coefficient uncertainty \citep{duchi2023drocausal}.
+
+\subsection{Representative Allocation Models}
+
+The simplest causal allocation rule treats units with the largest estimated treatment effects. This is optimal only in a special case: binary treatment, equal treatment costs, no other constraints, and known treatment effects. If there is a capacity $K$, the plug-in policy is
+\[
+    z_i = \mathbf{1}\{\hat{\tau}_i \text{ is among the top } K\}.
+\]
+This rule is useful as a baseline, but it ignores heterogeneous costs, uncertainty, fairness, and interactions. It also assumes that $\hat{\tau}_i$ is reliable enough for ranking.
+
+With heterogeneous costs, the problem becomes a knapsack:
+\[
+    \max_{z\in\{0,1\}^n}\sum_i \hat{\tau}_i z_i
+    \quad
+    \text{s.t.}\quad
+    \sum_i c_i z_i\le B.
+\]
+With group constraints, it becomes
+\[
+    L_g \le \sum_{i:G_i=g}z_i \le U_g,\quad g=1,\ldots,G.
+\]
+With robust treatment-effect uncertainty, one can replace $\hat{\tau}_i$ by an uncertainty set $\tau\in\mathcal{U}$:
+\[
+    \max_{z\in\mathcal{Z}}\min_{\tau\in\mathcal{U}}\sum_i \tau_i z_i.
+\]
+This formulation makes explicit the OR contribution: the causal estimator supplies possible treatment benefits, while the optimization model determines how those benefits are used under operational constraints.
+
+Policy learning papers such as \citet{kitagawa2018treated} and \citet{athey2021policy} can be interpreted as optimizing treatment assignment over a policy class rather than solving a finite knapsack. In many OR applications, however, the finite allocation formulation is more natural because the decision maker has a known population and must allocate a known resource. This suggests a productive research direction: combine the statistical guarantees of policy learning with the constraint richness of integer programming.
+
+\section{Empirical Welfare Maximization and Policy Learning}
+\label{sec:policy}
+
+\subsection{Statistical Treatment Rules}
+
+Empirical welfare maximization formalizes treatment choice as a statistical decision problem. \citet{manski2004statistical} studies statistical treatment rules for heterogeneous populations and emphasizes that the decision maker chooses a rule under sampling uncertainty. This perspective is naturally prescriptive: the output is not an estimate of an average effect, but a treatment rule.
+
+\citet{kitagawa2018treated} develop empirical welfare maximization methods for treatment choice and study regret. Their framework chooses a policy from a class by maximizing an empirical welfare criterion. The regret perspective is important for OR because it evaluates decisions by objective loss rather than estimation error. \citet{athey2021policy} extend policy learning to observational data using doubly robust scores and semiparametric efficiency arguments, making policy learning more compatible with modern causal machine learning.
+
+\subsection{Policy Value Estimation}
+
+Policy learning requires estimating the value of policies not necessarily observed in the data. If treatment was randomized, policy value can be estimated using experimental variation. If treatment assignment is observational but unconfounded, inverse-propensity weighting and doubly robust estimators can correct for selection \citep{rosenbaum1983central,dudik2011doubly,athey2021policy}. In logged bandit settings, \citet{swaminathan2015counterfactual} formulate counterfactual risk minimization for learning from logged feedback. These methods are central for recommendation, advertising, and platform operations, where new policies must be evaluated before deployment.
+
+Outcome-weighted learning provides a related approach for individualized treatment rules. \citet{zhao2012owl} transform treatment-rule estimation into a weighted classification problem, and \citet{zhang2012robust} develop robust estimation methods for optimal treatment regimes. These works connect causal decision rules to statistical learning, but their operational constraints are often simpler than those found in OR applications.
+
+\subsection{Policy Learning as OR}
+
+Policy learning is an optimization problem over decision rules. The feasible set may contain trees, linear rules, score thresholds, treatment lists, or algorithmic policies. The objective is a causal estimate of welfare. This is directly aligned with OR, but it differs from classical OR because the objective is estimated from data under causal assumptions. The computational problem and the statistical problem are intertwined \citep{kitagawa2018treated,athey2021policy}.
+
+The OR literature can contribute by enriching the feasible policy class and by analyzing the interaction between constraints and statistical uncertainty. For example, policy learning with budget constraints can be formulated as treatment assignment; policy learning with interpretability constraints can be formulated through trees or sparse rules; policy learning with fairness constraints can be formulated with group-level restrictions. These are familiar OR structures, but their objective functions are causal and estimated.
+
+\subsection{What Representative Policy Learning Papers Actually Do}
+
+\citet{manski2004statistical} starts from a decision-theoretic view. The planner chooses a treatment rule $d(x)\in\{0,1\}$ to maximize welfare
+\[
+    W(d)=\mathbb{E}[Y(d(X))].
+\]
+Because the population distribution is unknown, the planner uses sample data to choose a statistical treatment rule. The key contribution is to shift attention from estimating a treatment effect to choosing a decision rule under uncertainty. This is one of the conceptual foundations for empirical welfare maximization.
+
+\citet{kitagawa2018treated} develop empirical welfare maximization. Given a class of policies $\Pi$, they choose
+\[
+    \hat{\pi}
+    \in
+    \arg\max_{\pi\in\Pi}
+    \frac{1}{n}\sum_{i=1}^{n}
+    \left[
+    \frac{\mathbf{1}\{A_i=\pi(X_i)\}Y_i}{\hat{e}(A_i\mid X_i)}
+    \right],
+\]
+where $\hat{e}(a\mid x)$ is a propensity-score estimate. The method directly maximizes an empirical estimate of welfare rather than first estimating $\tau(x)$ everywhere. The paper studies regret bounds, which are closer to OR performance measures than mean-squared estimation error \citep{kitagawa2018treated}.
+
+\citet{athey2021policy} extend policy learning with observational data using doubly robust scores. For binary treatment, a common doubly robust score for treatment effect has the form
+\[
+    \hat{\Gamma}_i
+    =
+    \hat{\mu}_1(X_i)-\hat{\mu}_0(X_i)
+    +
+    \frac{A_i\{Y_i-\hat{\mu}_1(X_i)\}}{\hat{e}(X_i)}
+    -
+    \frac{(1-A_i)\{Y_i-\hat{\mu}_0(X_i)\}}{1-\hat{e}(X_i)}.
+\]
+Then a policy can be learned by solving
+\[
+    \max_{\pi\in\Pi}\frac{1}{n}\sum_{i=1}^{n}(2\pi(X_i)-1)\hat{\Gamma}_i,
+\]
+possibly with budget or fairness constraints. The contribution is to combine semiparametric efficiency with policy optimization, making the resulting policy less sensitive to nuisance-estimation errors \citep{athey2021policy}.
+
+\citet{zhao2012owl} formulate individualized treatment-rule estimation as outcome-weighted learning. The problem is transformed into a weighted classification problem where misclassifying units with high outcomes is penalized more. This creates a bridge between causal treatment rules and classification algorithms. \citet{zhang2012robust} develop robust estimation for optimal treatment regimes, emphasizing stability when outcome or propensity models are misspecified. These works are useful for treatment-rule learning, but they usually do not include the full set of capacity and resource constraints that OR applications require.
+
+\subsection{Interpretable and Implementable Policy Classes}
+
+Policy classes matter because they determine both statistical learnability and operational implementability. A highly flexible policy may have high estimated value but be difficult to explain, audit, or deploy. A simple threshold rule or tree may have lower estimated value but better adoption prospects. This tradeoff parallels OR's concern with implementable policies rather than purely theoretical optima. Empirical welfare maximization and policy learning typically restrict policies to manageable classes for statistical and computational reasons \citep{manski2004statistical,kitagawa2018treated}. OR can enrich this idea by introducing policy classes that match real operating procedures: score cutoffs, regional quotas, treatment lists, routing rules, staffing templates, and interpretable trees \citep{bertsimas2019optimal}.
+
+The implementability issue is especially important in high-stakes domains. In healthcare and public policy, decision makers may need to justify why one unit receives treatment and another does not. In platforms, policies must be stable enough to avoid user confusion or marketplace instability. In supply chains, policies must be compatible with planning cycles and contractual commitments. These considerations suggest that policy learning should not only optimize estimated value but also account for simplicity, stability, and managerial constraints \citep{athey2021policy,fernandez2022causal}.
+
+\section{Causal Prescriptive Analytics and Decision-Focused Learning}
+\label{sec:prescriptive}
+
+\subsection{Predictive-to-Prescriptive Analytics}
+
+Prescriptive analytics seeks to move beyond prediction toward decision recommendation. \citet{bertsimas2020predictive} provide a major OR framework for using historical data to prescribe decisions conditional on covariates. Their work shows how predictive models, local weighting, and optimization can be combined to produce decisions rather than forecasts. Related work on optimal prescriptive trees develops interpretable tree-based decision policies \citep{bertsimas2019optimal}. Predict-and-optimize methods, including Smart Predict-then-Optimize, train predictive models using downstream optimization loss rather than prediction loss \citep{elmachtoub2022smart}.
+
+These contributions are central to data-driven OR, but they are not automatically causal. A model can be decision-focused while still optimizing an observational association. If the training data were generated by a historical policy, the model may learn how outcomes vary under that policy rather than how outcomes would change under new actions \citep{fernandez2022causal,leporeni2023causally}. Thus, causal prescriptive analytics requires both decision-focused optimization and causal identification.
+
+\subsection{Relationship to Policy Learning}
+
+Prescriptive analytics and policy learning overlap but come from different traditions. OR prescriptive analytics emphasizes optimization under constraints and often starts from predictive models \citep{bertsimas2020predictive,misic2020data}. Causal policy learning emphasizes treatment-rule value under identification assumptions \citep{manski2004statistical,kitagawa2018treated,athey2021policy}. A useful synthesis is to view causal policy learning as the causal version of prescriptive analytics, and prescriptive analytics as the operationally constrained version of policy learning.
+
+This synthesis clarifies what a complete causal-OR model must contain. First, the outcome model or policy value must correspond to potential outcomes under candidate actions. Second, the policy must be feasible in the operational system. Third, the learning objective should reflect decision loss rather than only prediction loss. Fourth, uncertainty in the causal estimand should be represented in optimization.
+
+\subsection{Decision-Focused Learning with Causal Objectives}
+
+Predict-and-optimize methods show that training a predictive model for downstream decision quality can outperform training it for predictive accuracy alone \citep{elmachtoub2022smart}. The causal version of this idea would train models for downstream causal decision quality. This requires replacing predictive loss with a loss based on policy value, regret, or constrained welfare. Such a framework would combine the decision-focused philosophy of modern data-driven OR with the identification discipline of causal inference \citep{bertsimas2020predictive,athey2021policy}.
+
+One difficulty is that causal objectives are often not directly observed. The loss of a policy depends on counterfactual outcomes under actions not taken. This makes causal decision-focused learning more complex than ordinary predict-and-optimize. It requires propensity information, doubly robust scores, experimental variation, or structural assumptions \citep{dudik2011doubly,swaminathan2015counterfactual,athey2021policy}. The resulting optimization problem may also be nonconvex or nonsmooth, especially when downstream decisions are integer-valued. This is a technical area where OR and machine learning can contribute jointly.
+
+\subsection{What Representative Prescriptive Analytics Papers Actually Do}
+
+\citet{bertsimas2020predictive} study data-driven prescriptions where the decision $z$ is chosen to minimize an expected cost conditional on covariates:
+\[
+    z^\star(x)\in\arg\min_{z\in\mathcal{Z}}\mathbb{E}[c(z;Y)\mid X=x].
+\]
+They use machine-learning methods to construct weights around a new covariate value $x$ and solve a weighted sample-average optimization problem:
+\[
+    \hat{z}(x)
+    \in
+    \arg\min_{z\in\mathcal{Z}}
+    \sum_{i=1}^{n}w_i(x)c(z;Y_i).
+\]
+This is a major contribution to data-driven OR because it links predictive modeling with decision optimization. The causal limitation is that $Y_i$ is observed under historical decisions; unless the historical data identify $Y(z)$ under candidate decisions, the weighted objective is predictive rather than interventional \citep{bertsimas2020predictive,fernandez2022causal}.
+
+\citet{bertsimas2019optimal} develop optimal prescriptive trees. A prescriptive tree partitions the covariate space and assigns a decision to each leaf. The model trades off objective performance and interpretability. In OR terms, it produces a policy that is easier to communicate than a black-box rule. In causal OR, this idea is useful because policies often must be auditable. However, the causal validity of a prescriptive tree still depends on whether the data support counterfactual evaluation of decisions within leaves.
+
+\citet{elmachtoub2022smart} introduce Smart Predict-then-Optimize (SPO). In standard predict-then-optimize, one predicts uncertain parameters $\hat{c}$ and then solves
+\[
+    z^\star(\hat{c})\in\arg\min_{z\in\mathcal{Z}}\hat{c}^{\top}z.
+\]
+SPO trains the prediction model using a loss based on the downstream decision regret rather than prediction error:
+\[
+    \ell_{\mathrm{SPO}}(\hat{c},c)
+    =
+    c^{\top}z^\star(\hat{c}) - c^{\top}z^\star(c).
+\]
+This is directly relevant to causal OR because it shows how to train upstream models for decision quality. The missing causal step is that $c$ or $Y$ must represent outcomes under the decision being optimized. Thus, a causal version of SPO would need decision-focused learning with potential outcomes or policy-value scores rather than ordinary realized outcomes.
+
+\subsection{Interpretable Prescriptions}
+
+Interpretability matters in operations. Managers, clinicians, and policy makers often need rules they can audit and implement. Optimal prescriptive trees provide one approach by producing tree-structured decision rules \citep{bertsimas2019optimal}. Causal policy trees and treatment lists offer related possibilities when objectives are causal. The tradeoff is that interpretable policy classes may have lower statistical flexibility but better implementation properties. This tradeoff is familiar in OR, where implementability and optimality often conflict.
+
+\section{Robust Causal Optimization Under Hidden Confounding}
+\label{sec:robust}
+
+\subsection{The Fragility of Unconfoundedness}
+
+Many observational causal methods assume unconfoundedness: conditional on observed covariates, treatment assignment is independent of potential outcomes \citep{rosenbaum1983central,imbens2015causal}. In operations, this assumption is often fragile. Managers may act on private forecasts; physicians may observe symptoms not captured in the database; dispatchers may react to real-time system conditions; algorithms may use proprietary scores unavailable to analysts \citep{ho2017causal}. These unobserved factors can bias estimated treatment effects and policy values.
+
+Sensitivity analysis studies how conclusions change when unconfoundedness is relaxed \citep{rosenbaum2002observational}. Robust causal optimization takes the next step: rather than only reporting sensitivity, it chooses policies that perform well over a set of plausible causal models. A generic formulation is
+\[
+    \max_{\pi\in\Pi}\min_{Q\in\mathcal{U}} V_Q(\pi),
+\]
+where $\mathcal{U}$ is an ambiguity set induced by a sensitivity model or partial-identification argument.
+
+\subsection{Confounding-Robust Policy Improvement}
+
+\citet{kallus2018confounding} develop confounding-robust policy improvement, which constructs policies that improve performance even under hidden confounding within a sensitivity model. This work is important because it directly links causal sensitivity analysis with robust decision making. Instead of assuming that a learned policy is valid under point identification, it optimizes a worst-case policy value over plausible confounding structures.
+
+Distributionally robust causal inference extends related ideas by connecting causal uncertainty to ambiguity sets over distributions \citep{duchi2023drocausal}. This creates a bridge to robust optimization, where uncertainty sets are used to protect decisions against adverse parameter realizations \citep{ben2009robust,bertsimas2011theory}. The analogy is direct but not complete. In classical robust optimization, uncertainty often concerns demand or cost. In robust causal optimization, uncertainty concerns the causal effect of the decision itself.
+
+\subsection{Calibration and Conservatism}
+
+The central difficulty is calibration. If the ambiguity set is too small, the policy may be falsely confident. If it is too large, the policy may be overly conservative and reject useful interventions. Sensitivity parameters must be interpretable to domain experts, and the resulting optimization problem must be computationally tractable \citep{rosenbaum2002observational,kallus2018confounding}. This is a major opportunity for OR because robust optimization has developed a sophisticated language for tractability, conservatism, and uncertainty-set design \citep{ben2009robust,bertsimas2011theory}.
+
+\subsection{Comparison with Classical Robust Optimization}
+
+Classical robust optimization usually treats uncertain coefficients, constraints, or distributions as exogenous objects \citep{ben2009robust,bertsimas2011theory}. In robust causal optimization, the uncertainty set concerns a causal estimand that is only partially identified or sensitive to hidden variables. This difference matters. A demand uncertainty set can often be calibrated from historical demand variation; a causal ambiguity set must account for counterfactual quantities that are never jointly observed. Thus, robust causal optimization requires both statistical and causal interpretation.
+
+At the same time, the robust optimization literature provides valuable tools. Tractable uncertainty sets, duality-based reformulations, adjustable decisions, and distributional robustness can all be adapted to causal decision problems. The challenge is to preserve the meaning of the causal sensitivity model after reformulation. A computationally convenient uncertainty set is not useful if it no longer corresponds to plausible hidden confounding. Conversely, a substantively meaningful sensitivity model is of limited prescriptive value if it yields an intractable optimization problem. This tension is one of the central methodological problems in robust causal OR.
+
+\subsection{Distributionally Robust Policy Learning}
+
+Distributionally robust policy learning is a particularly natural bridge between data-driven optimization and causal decision making. In standard policy learning, the analyst typically optimizes an estimated policy value under a nominal data-generating distribution. In distributionally robust policy learning, the analyst instead optimizes the worst-case value over an ambiguity set:
+\[
+    \max_{\pi\in\Pi}\inf_{P\in\mathcal{P}} V_P(\pi),
+\]
+where $\mathcal{P}$ may represent sampling uncertainty, covariate shift, latent subgroup shift, logged-policy uncertainty, or hidden confounding. This formulation is familiar to OR researchers because it resembles DRO models for stochastic optimization and machine learning \citep{rahimian2019dro,kuhn2019wasserstein}. Its causal interpretation, however, depends on what distributions are allowed to vary and whether the variation corresponds to plausible intervention worlds.
+
+One branch of this literature studies robustness to distribution shift in logged decision problems. \citet{si2020dro} develop distributionally robust policy evaluation and learning in offline contextual bandits. Their setting is relevant to digital platforms, advertising, and recommendation systems, where historical logs are generated by a behavior policy and the learned policy must perform well under uncertainty. This is close to off-policy evaluation, but the DRO formulation protects against misspecification or distributional perturbations around the logged data-generating process \citep{dudik2011doubly,swaminathan2015counterfactual,si2020dro}.
+
+A second branch studies robustness to subgroup or population shift. \citet{duchi2023latent} develop distributionally robust losses for latent covariate mixtures, showing how DRO can improve worst-case performance over hidden subpopulations. Although this work is not specifically a causal policy-learning paper, it is highly relevant to causal OR because treatment policies often fail on underrepresented subgroups. If treatment effects, propensities, or outcomes differ across latent populations, average-value policy learning may select policies that perform poorly for the worst-off group. A DRO objective can be interpreted as a way to protect treatment decisions against such latent heterogeneity \citep{duchi2023latent}.
+
+A third branch connects DRO directly to causal ambiguity. \citet{duchi2023drocausal} study distributionally robust causal inference with observational data, while \citet{kallus2018confounding} construct uncertainty sets motivated by causal sensitivity analysis. These works differ from generic DRO because the ambiguity set is not only about out-of-sample prediction risk; it is about the counterfactual distribution that would arise under interventions. This distinction matters for OR modeling. A Wasserstein ball around the empirical distribution may protect against covariate shift, but it does not automatically encode hidden confounding. Conversely, a sensitivity-analysis ambiguity set may encode hidden confounding but may not protect against future covariate shift. A mature distributionally robust causal policy framework should clarify which uncertainty source is being protected against.
+
+For a data-driven optimization group, this area is promising for three reasons. First, it translates causal decision uncertainty into the language of ambiguity sets, duality, and tractable reformulations. Second, it gives a principled way to move beyond point-estimated CATE coefficients in allocation models. Third, it creates new questions about calibration: should the ambiguity radius be chosen by statistical confidence, operational stress tests, sensitivity parameters, or validation experiments? These are precisely the kinds of questions where OR methodology can contribute to causal inference.
+
+\subsection{Recent DRO Formulations for Offline Policy Learning}
+
+Recent work makes the DRO-policy-learning connection more explicit by starting from the offline contextual bandit setting. The data consist of logged observations
+\[
+    \mathcal{D}_n=\{(X_i,A_i,R_i)\}_{i=1}^n,
+\]
+where $X_i$ is the context, $A_i$ is the action chosen by a logging policy $e_0(a\mid x)$, and $R_i$ is the observed reward. For a target policy $\pi(a\mid x)$, the nominal policy value is
+\[
+    V(\pi)=\mathbb{E}\left[\sum_{a\in\mathcal{A}}\pi(a\mid X)\mu(a,X)\right],
+\]
+where $\mu(a,x)=\mathbb{E}[R(a)\mid X=x]$ is the causal reward function under action $a$. Under standard overlap and unconfoundedness assumptions for logged bandit data, a basic inverse-propensity estimator is
+\[
+    \widehat{V}_{\mathrm{IPW}}(\pi)
+    =
+    \frac{1}{n}\sum_{i=1}^{n}
+    \frac{\pi(A_i\mid X_i)}{e_0(A_i\mid X_i)}R_i.
+\]
+Doubly robust estimators augment this with an outcome model $\hat{\mu}(a,x)$:
+\[
+    \widehat{V}_{\mathrm{DR}}(\pi)
+    =
+    \frac{1}{n}\sum_{i=1}^{n}
+    \left[
+    \sum_{a}\pi(a\mid X_i)\hat{\mu}(a,X_i)
+    +
+    \frac{\pi(A_i\mid X_i)}{e_0(A_i\mid X_i)}
+    \{R_i-\hat{\mu}(A_i,X_i)\}
+    \right].
+\]
+These formulas are the starting point for many off-policy evaluation and policy-learning methods \citep{dudik2011doubly,swaminathan2015counterfactual,athey2021policy}. The DRO extension replaces the nominal empirical distribution by an ambiguity set around the logging distribution or a possible deployment distribution.
+
+\citet{si2020dro} formulate distributionally robust policy evaluation and learning for offline contextual bandits by allowing the future environment to differ from the historical one. Conceptually, their robust value takes the form
+\[
+    V_{\mathrm{rob}}(\pi)
+    =
+    \inf_{Q\in\mathcal{P}_{\rho}}
+    \mathbb{E}_{Q}\left[
+    \sum_{a}\pi(a\mid X)\mu(a,X)
+    \right],
+\]
+where $\mathcal{P}_{\rho}$ is an ambiguity set around the empirical context distribution. Their contribution is to move offline policy learning away from the assumption that the deployment environment is identical to the logging environment. For OR readers, this is essentially a distributionally robust stochastic optimization problem whose objective is a causal policy value.
+
+\citet{yang2023dropo} study distributionally robust policy gradients for offline contextual bandits. Their setting emphasizes policy optimization rather than only policy evaluation. The key issue is that the gradient of an offline policy objective can be unreliable when the learned policy places mass on actions or contexts poorly covered by the logging data. Their DRO policy-gradient method conservatively estimates the conditional reward distribution and updates the policy in a way that is more stable under biased logging policies. This line is important because it connects robust policy learning to scalable gradient-based algorithms rather than only finite policy classes.
+
+\citet{shen2023wasserstein} propose a Wasserstein DRO approach for contextual-bandit policy evaluation and learning. Earlier DRO bandit formulations often use KL or other divergence balls around the empirical distribution; Wasserstein ambiguity sets are attractive because they can account for geometry in the context space and can include distributions with shifted support. The robust policy value can be written schematically as
+\[
+    \inf_{Q: W(Q,\widehat{P}_n)\le \rho}
+    \mathbb{E}_{Q}\left[\ell_{\pi}(X,A,R)\right],
+\]
+where $W(\cdot,\cdot)$ is a Wasserstein distance and $\ell_{\pi}$ is a policy-value loss or reward functional. For causal OR, the point is that Wasserstein DRO gives a way to model covariate shift in deployment environments, but it must still be combined with causal assumptions that justify interpreting logged rewards as potential outcomes under target actions.
+
+\citet{guo2024covariate} extend this stream to general covariate shift in contextual bandits. Their approach uses robust regression to estimate conditional reward distributions and then integrates the robust reward model into direct-method and doubly robust policy value estimators. This is relevant when both context distributions and policy distributions differ between logging and deployment. In operational terms, this covers cases where a platform or firm deploys a policy in a market whose user mix differs from the historical sample.
+
+\citet{leung2025continuous} address distributionally robust policy evaluation and learning with continuous treatments using observational data. This is important for OR because many operational decisions are continuous: prices, discount levels, treatment dosages, inventory levels, and staffing intensities. For a continuous action $a\in\mathcal{A}$, exact action matching has probability zero, so IPW must be smoothed. A kernelized continuous-treatment IPW estimator takes the generic form
+\[
+    \widehat{V}_{h}(\pi)
+    =
+    \frac{1}{n}\sum_{i=1}^{n}
+    \frac{K_h(A_i-\pi(X_i))}{\hat{e}(A_i\mid X_i)}R_i,
+\]
+where $K_h(\cdot)$ is a kernel with bandwidth $h$ and $\hat{e}(a\mid x)$ is a generalized propensity density. Their distributionally robust extension studies policy evaluation and learning under deployment shift for continuous treatments, which is closer to pricing and dosage problems than binary treatment assignment.
+
+These recent results clarify that ``DRO policy learning'' is not a single model. It includes at least four technically different cases: divergence-based robustness for logged contextual bandits \citep{si2020dro}; policy-gradient robustness for scalable offline learning \citep{yang2023dropo}; Wasserstein robustness for geometric covariate shift \citep{shen2023wasserstein}; and continuous-treatment robust policy learning for non-discrete operational actions \citep{leung2025continuous}. From an OR perspective, the common structure is a robust policy-value optimization problem. From a causal perspective, the key question is whether the robust value corresponds to a credible interventional quantity.
+
+\section{Sequential Causal Decision Making}
+\label{sec:sequential}
+
+\subsection{Dynamic Treatment Regimes}
+
+Many operational decisions are sequential. Inventory replenishment affects future inventory; prices affect future demand and customer behavior; medical treatments affect future health states; platform subsidies affect future participation. Static treatment-effect models are inadequate because actions affect future covariates and feasible actions \citep{murphy2003dynamic,sutton2018reinforcement}.
+
+The dynamic treatment regime literature provides a causal framework for sequential individualized decisions. \citet{robins1986new} introduced causal methods for sustained treatment strategies and time-varying confounding. \citet{murphy2003dynamic} formulated optimal dynamic treatment regimes as sequential decision rules. \citet{qian2011performance} studied performance guarantees for individualized treatment rules, while \citet{zhang2012robust} proposed robust methods for estimating optimal regimes.
+
+Dynamic treatment regimes are closely related to dynamic programming, but they emphasize causal identification. Sequential exchangeability and positivity assumptions are needed to interpret observed trajectories as informative about counterfactual regimes \citep{hernan2020causal}. This causal emphasis distinguishes dynamic treatment regimes from purely predictive time-series or reinforcement-learning models.
+
+\subsection{Off-Policy Evaluation and Reinforcement Learning}
+
+Reinforcement learning studies sequential decision making with feedback \citep{sutton2018reinforcement}. In many operational settings, however, new policies must be evaluated using data generated by old policies. This is the off-policy evaluation problem. Doubly robust policy evaluation and counterfactual risk minimization provide tools for logged feedback settings \citep{dudik2011doubly,swaminathan2015counterfactual}. These tools are important for digital platforms, recommendation systems, and online marketplaces.
+
+Robust Markov decision process models study dynamic optimization when transition probabilities are uncertain \citep{iyengar2005robust,nilim2005robust,wiesemann2013robust}. This literature is related to robust causal decision making because both protect decisions against uncertainty in system response. The causal extension requires explicit attention to whether transition estimates represent interventions or merely observations under a historical policy.
+
+\subsection{Open Questions in Sequential Causal OR}
+
+Sequential causal OR remains less developed than static causal allocation. Major open questions include how to identify counterfactual transitions under time-varying confounding, how to incorporate capacity and fairness constraints into dynamic regimes, how to combine robust MDPs with causal sensitivity analysis, and how to validate learned policies without unsafe deployment \citep{robins1986new,murphy2003dynamic,iyengar2005robust,wiesemann2013robust}. These questions sit squarely at the intersection of causal inference, stochastic control, and OR.
+
+Sequential settings also raise exploration questions. If a system only follows current best practices, it may never collect data on alternative actions in important states. This creates positivity violations and poor off-policy evaluation. Operational experimentation can improve future learning, but it may impose short-run costs or ethical risks. The resulting problem resembles a constrained exploration-exploitation tradeoff with causal identification constraints. Existing bandit and reinforcement-learning methods provide some tools, but the explicit combination of causal identification, operational constraints, and robust dynamic optimization remains incomplete \citep{dudik2011doubly,swaminathan2015counterfactual,sutton2018reinforcement}.
+
+\subsection{What Representative Sequential Papers Actually Do}
+
+\citet{robins1986new} introduced methods for causal inference with sustained exposure and time-varying confounding. The key difficulty is that time-varying covariates can be both affected by previous treatment and predictors of future treatment. Standard regression adjustment can then be biased. This insight is foundational for sequential causal decision making because operational states often evolve in response to previous actions.
+
+\citet{murphy2003dynamic} formulates optimal dynamic treatment regimes. A regime is a sequence of decision rules
+\[
+    d=(d_1,\ldots,d_T),\quad A_t=d_t(H_t),
+\]
+where $H_t$ is the observed history before decision $t$. The value of a regime is
+\[
+    V(d)=\mathbb{E}[Y^d],
+\]
+the expected counterfactual outcome if regime $d$ were followed. This is conceptually close to dynamic programming, but the challenge is estimating $V(d)$ from observed treatment histories under causal assumptions \citep{murphy2003dynamic,hernan2020causal}.
+
+\citet{qian2011performance} study performance guarantees for individualized treatment rules. Their contribution is to evaluate treatment rules by the value loss relative to the optimal rule, making the analysis decision-oriented. \citet{zhang2012robust} propose robust methods for estimating optimal treatment regimes, combining outcome regression and weighting ideas to reduce sensitivity to misspecification. These papers show that sequential causal inference has long used regret-like and robustness ideas that are familiar to OR.
+
+Robust MDP papers such as \citet{iyengar2005robust}, \citet{nilim2005robust}, and \citet{wiesemann2013robust} study dynamic decisions when transition probabilities are uncertain:
+\[
+    V(s)=\max_{a\in\mathcal{A}}
+    \left\{
+    r(s,a)+\gamma\min_{P(\cdot\mid s,a)\in\mathcal{P}_{s,a}}
+    \sum_{s'}P(s'\mid s,a)V(s')
+    \right\}.
+\]
+This Bellman equation is robust but not automatically causal. It protects against transition ambiguity, but the transition set must represent interventional dynamics under actions. A causal robust MDP would need to define whether $\mathcal{P}_{s,a}$ reflects sampling error, model misspecification, hidden confounding, or genuine environmental uncertainty.
+
+\section{Application Domains}
+\label{sec:applications}
+
+\subsection{Marketing, Revenue Management, and Digital Platforms}
+
+Marketing and digital platforms are natural domains for causal prescriptive analytics. Treatments include coupons, advertisements, notifications, ranking changes, and subsidies; outcomes include purchase, retention, revenue, engagement, and marketplace balance. Predictive targeting can fail because high-probability customers are not necessarily high-uplift customers \citep{fernandez2022causal,leporeni2023causally}. Causal targeting therefore requires estimating incremental effects and allocating treatment under campaign budgets or platform constraints.
+
+Revenue management extends the problem to continuous or multi-level actions. Prices and discounts affect demand, revenue, and future customer behavior. Classical dynamic pricing models optimize prices under stochastic demand \citep{gallego1994optimal}. Causal revenue management asks whether the estimated demand response represents a causal price effect rather than historical price-demand correlation. This creates opportunities to combine causal dose-response estimation with price optimization and experimentation.
+
+Digital platforms generate logged bandit feedback because users see actions chosen by previous algorithms. Off-policy evaluation and counterfactual risk minimization are therefore central \citep{dudik2011doubly,swaminathan2015counterfactual}. Operational constraints include advertiser budgets, user experience, marketplace balance, fairness, and system stability. These constraints make platform policy learning a natural OR problem.
+
+\subsection{Healthcare Operations}
+
+Healthcare operations involve screening, triage, treatment assignment, discharge planning, follow-up outreach, and capacity allocation. Causal inference is necessary because treatment assignment is rarely random: physicians respond to patient severity, clinical judgment, and unrecorded information \citep{hernan2020causal,ho2017causal}. OR contributes models for appointment scheduling, staff allocation, bed capacity, queueing, and resource prioritization.
+
+Dynamic treatment regimes are especially relevant because medical decisions evolve over time \citep{murphy2003dynamic,zhang2012robust}. A patient's response to early treatment affects later treatment options, and time-varying confounding can arise when evolving health states influence both treatment and outcome \citep{robins1986new,hernan2020causal}. Causal OR models for healthcare must therefore combine causal identification, sequential decisions, capacity constraints, ethical constraints, and uncertainty.
+
+\subsection{Supply Chain and Service Operations}
+
+Supply chain and service operations involve interventions such as expediting, inventory reallocation, supplier switching, inspection, staffing, and process redesign. Historical operational decisions are often endogenous because managers act on private forecasts, supplier information, or real-time disruptions \citep{ho2017causal}. Data analytics reviews document the increasing role of machine learning in operations, but much of this work remains prediction-focused \citep{choi2018bigdata,misic2020data}.
+
+Causal OR can improve this literature by distinguishing demand forecasts from demand responses, supplier-risk predictions from the effects of mitigation actions, and service-delay predictions from the effects of staffing interventions. Optimization then converts estimated intervention effects into feasible policies under network, inventory, and capacity constraints.
+
+\subsection{Public Policy and Social Resource Allocation}
+
+Public agencies allocate scarce resources to job training, education, inspections, public health outreach, and social services. These settings are close to the empirical welfare maximization literature because the goal is to choose treatment rules that improve welfare under resource constraints \citep{manski2004statistical,kitagawa2018treated}. They also involve fairness, transparency, and legal constraints. \citet{athey2021policy} explicitly discuss policy learning with application-relevant constraints such as budget and fairness.
+
+The public-policy setting highlights a tension between efficiency and equity. A policy that maximizes total causal benefit may allocate resources unevenly across groups. Fairness constraints can be imposed on treatment rates, expected benefits, or counterfactual outcomes. These choices have different ethical and operational implications, and causal inference is needed to distinguish observed disparities from intervention effects \citep{athey2021policy,hernan2020causal}.
+
+\subsection{Empirical Operations Management}
+
+Empirical operations management has used causal inference to estimate the effects of operational practices. \citet{ho2017causal} review causal inference models in operations management, including endogeneity, instrumental variables, regression discontinuity, difference-in-differences, and field experiments. This literature helps establish credible causal effects in operational settings.
+
+The next step is to close the loop from estimation to prescription. If an empirical OM study estimates the effect of a staffing policy, pricing rule, or process intervention, OR can use that estimate to design future policies under constraints. This loop is still underdeveloped. Much empirical work stops at estimating effects, while much prescriptive work assumes estimates are exogenous. Causal OR can connect the two.
+
+\subsection{A Cross-Domain Comparison}
+
+Across application domains, the same conceptual structure reappears. There is an action, a causal response, an operational constraint, and a decision objective. What differs is the nature of the intervention and the credibility of identification. Marketing and platforms often have rich experimentation and logged feedback but face interference and marketplace constraints. Healthcare has high-stakes outcomes and longitudinal data but severe confounding and ethical constraints. Supply chains have networked constraints and managerial private information. Public policy has strong fairness and transparency requirements but limited experimentation. These differences imply that no single causal-OR method will dominate across domains.
+
+For this reason, researchers should match methodology to domain structure. If randomized experiments are available, policy learning and decision-oriented experimental design are natural. If only observational data are available but unconfoundedness is plausible, doubly robust policy learning and CATE-based allocation are reasonable. If hidden confounding is likely, robust causal optimization and sensitivity analysis become essential. If decisions are sequential, dynamic treatment regimes and off-policy evaluation are needed. This domain-method alignment is a practical contribution of the taxonomy in this review.
+
+\section{Synthesis of the Literature}
+\label{sec:synthesis}
+
+\begin{longtable}{p{0.16\textwidth} p{0.21\textwidth} p{0.20\textwidth} p{0.20\textwidth} p{0.13\textwidth}}
+\toprule
+\textbf{Stream} & \textbf{Main contribution} & \textbf{Representative methods} & \textbf{OR connection} & \textbf{Main gap} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Stream} & \textbf{Main contribution} & \textbf{Representative methods} & \textbf{OR connection} & \textbf{Main gap} \\
+\midrule
+\endhead
+Optimization-based estimation & Constructs credible counterfactual comparisons & Matching, weighting, synthetic control, balance optimization & Assignment, convex optimization, minimax design & Often stops before prescriptive decisions \\
+HTE estimation & Estimates who benefits from intervention & Causal trees, causal forests, GRF, DML, representation learning & Targeting and value-of-information analysis & Estimation loss may not match decision regret \\
+Causal resource allocation & Allocates scarce interventions by causal benefit & CATE plug-in rules, treatment assignment, uplift modeling & Knapsack, IP, network constraints, robust optimization & Uncertainty and coupled constraints remain underdeveloped \\
+Policy learning & Learns treatment rules directly & EWM, doubly robust scores, outcome-weighted learning & Optimization over policy classes & Feasibility sets are often simplified \\
+Causal prescriptive analytics & Connects causality with data-driven prescriptions & Prescriptive trees, predict-and-optimize, causal policy values & Data-driven OR and interpretable policies & Causal identification often separated from optimization \\
+Robust causal optimization & Protects against hidden confounding & Sensitivity analysis, ambiguity sets, DRO & Robust optimization and minimax decision making & Calibration and conservatism \\
+Distributionally robust policy learning & Protects policy value against distribution shift or causal ambiguity & Wasserstein or divergence balls, latent mixtures, logged-bandit DRO & DRO, robust allocation, off-policy learning & Ambiguity-set interpretation and calibration \\
+Sequential causal decisions & Optimizes long-run interventional value & Dynamic regimes, OPE, robust MDPs & Dynamic programming, stochastic control, RL & Identification and computation weakly integrated \\
+\bottomrule
+\caption{A synthesis of research streams at the causal inference--OR interface.}
+\end{longtable}
+
+The literature reveals three broad patterns. First, causal inference has strong tools for defining and estimating treatment effects, but it often abstracts from operational feasibility. Second, OR has strong tools for constrained optimization, but it often treats estimated parameters as if they were exogenous and noncausal. Third, robust optimization and policy learning provide natural bridges because they already focus on decision loss, regret, and uncertainty \citep{kitagawa2018treated,ben2009robust,kallus2018confounding,athey2021policy}.
+
+The central methodological challenge is therefore integration. A complete causal-OR model should specify the intervention, identify the causal estimand, estimate it with uncertainty, optimize an implementable decision, and evaluate regret or robustness. Most existing work addresses only part of this pipeline.
+
+\begin{table}[htbp]
+\centering
+\small
+\begin{tabular}{p{0.20\textwidth} p{0.24\textwidth} p{0.24\textwidth} p{0.20\textwidth}}
+\toprule
+\textbf{Decision setting} & \textbf{Causal challenge} & \textbf{Optimization challenge} & \textbf{Representative tools} \\
+\midrule
+Coupon or ad targeting & Selection bias in historical campaigns; uplift rather than purchase prediction & Budgeted allocation and campaign constraints & CATE, policy learning, knapsack \\
+Clinical outreach & Confounding by severity and physician judgment & Capacity, ethics, and fairness constraints & Dynamic regimes, robust allocation \\
+Pricing and discounts & Endogenous prices and strategic demand response & Continuous actions and revenue tradeoffs & Dose-response, price optimization \\
+Supply chain expediting & Managerial private information and disruption selection & Network and inventory coupling & Causal estimation, stochastic optimization \\
+Public program assignment & Nonrandom participation and equity concerns & Budget, legal, and group constraints & EWM, fairness-constrained policy learning \\
+Platform ranking or subsidy & Logged feedback, interference, marketplace equilibrium & Multi-sided constraints and off-policy risk & OPE, counterfactual risk minimization \\
+\bottomrule
+\end{tabular}
+\caption{Representative causal and optimization challenges across domains.}
+\end{table}
+
+\section{Research Agenda}
+\label{sec:agenda}
+
+\subsection{Estimation-to-Optimization Error}
+
+Two-stage workflows estimate causal effects and then optimize using point estimates. This ignores the fact that optimization can amplify estimation errors. Small errors near treatment thresholds can change allocation decisions, while errors far from the boundary may be irrelevant. Future work should derive regret bounds and robust counterparts that connect causal estimation error to objective loss \citep{kitagawa2018treated,athey2021policy}. This is a natural OR problem because it concerns sensitivity of optimal decisions to uncertain coefficients.
+
+\subsection{Multi-Action and Continuous Interventions}
+
+Many causal decision papers study binary treatment, but operational actions are often multi-level, continuous, or combinatorial. Prices, discounts, staffing levels, inventory quantities, service intensities, and treatment dosages require richer causal response models. Future work should combine dose-response estimation, structural demand models, nonlinear optimization, and mixed-integer optimization \citep{gallego1994optimal,bertsimas2020predictive}. This is especially important for revenue management, healthcare dosing, and service operations.
+
+\subsection{Fairness-Aware Causal Allocation}
+
+Fairness in causal allocation can be defined over treatment rates, causal benefits, counterfactual outcomes, or regret across groups. These definitions are not equivalent. A policy can equalize treatment rates while producing unequal causal benefits, or maximize total benefit while allocating little to a disadvantaged group. Policy learning with fairness constraints has begun to address these issues, but richer OR models are needed for realistic allocation systems \citep{athey2021policy}.
+
+\subsection{Robust Causal Ambiguity Sets}
+
+Robust causal optimization requires ambiguity sets that reflect hidden confounding, sampling error, and model misspecification. Existing sensitivity models provide interpretable starting points, but translating them into tractable optimization sets remains difficult \citep{rosenbaum2002observational,kallus2018confounding}. Future work should develop calibrated ambiguity sets using domain knowledge, partial experiments, negative controls, or validation data. The aim is to avoid both false confidence and excessive conservatism.
+
+For distributionally robust policy learning, a useful research direction is to classify ambiguity sets by the uncertainty source they represent. A $\phi$-divergence or Wasserstein ambiguity set around the empirical covariate distribution may address sampling error or covariate shift \citep{rahimian2019dro,kuhn2019wasserstein}. A latent-mixture DRO set may address hidden subgroup performance \citep{duchi2023latent}. A sensitivity-analysis set may address unobserved confounding \citep{rosenbaum2002observational,kallus2018confounding}. A logged-bandit ambiguity set may address uncertainty in off-policy evaluation \citep{si2020dro}. These cases should not be treated as interchangeable. Each protects against a different failure mode, and each leads to a different interpretation of the resulting policy.
+
+A second research direction is to derive tractable robust counterparts for causal allocation problems. For instance, if $\tau_i$ is estimated with uncertainty and the decision is a knapsack allocation, one can construct uncertainty sets over treatment benefits and solve a robust or distributionally robust knapsack. The main challenge is to connect the uncertainty set to causal estimation procedures rather than choosing it heuristically. Confidence sets from orthogonal scores, sensitivity-analysis bounds, or bootstrap distributions from causal forests could all serve as inputs, but their optimization implications differ.
+
+\subsection{Decision-Oriented Experimental Design}
+
+Experiments are often designed to estimate average treatment effects, but decision makers may need data for targeting, policy learning, or resource allocation. OR can help design experiments that optimize downstream decision quality subject to ethical, budgetary, and operational constraints \citep{kallus2018balance}. This calls for experimental design criteria based on regret, value of information, and feasibility rather than only estimation variance.
+
+One concrete research direction is to design experiments that deliberately sample near future decision boundaries. If the decision maker only needs to decide among units near a treatment cutoff, then uniform precision across the population may be wasteful. Another direction is constrained adaptive experimentation: allocate experimentation probability while respecting service-level or fairness constraints. A third direction is experiment design for robust policy learning, where the experiment is chosen to reduce ambiguity sets relevant to future robust optimization. These problems are naturally OR problems because they require optimizing information acquisition under constraints.
+
+\subsection{Sequential and Networked Systems}
+
+Sequential causal OR remains a major open area. Future models should integrate dynamic treatment regimes, off-policy evaluation, robust MDPs, and operational constraints such as capacity, queues, and networks \citep{murphy2003dynamic,iyengar2005robust,wiesemann2013robust}. Networked systems add interference, where one unit's treatment affects another unit's outcome. Although interference is central in platforms, supply chains, and service networks, it remains underdeveloped in causal OR.
+
+\subsection{A Practical Research Template}
+
+For a researcher developing a thesis or early project in this area, a practical template is as follows. First, choose a concrete operational decision, preferably one with an obvious intervention and constraint. Examples include budgeted outreach, coupon allocation, inspection scheduling, or preventive maintenance. Second, define the causal estimand needed for the decision, such as an incremental benefit or policy value. Third, choose an identification strategy appropriate to the data: randomized experiment, unconfoundedness, quasi-experiment, or sensitivity analysis. Fourth, estimate causal effects or policy scores with uncertainty. Fifth, formulate the OR model, including budget, capacity, fairness, or risk constraints. Sixth, evaluate the policy using regret, robustness, and feasibility metrics rather than prediction metrics alone.
+
+This template helps avoid two common weak projects. The first weak project estimates treatment effects but never uses them in an optimization model. The second builds an optimization model but treats observational predictions as causal effects. A stronger project explicitly connects the causal estimand to the operational objective. For example, a robust causal knapsack model with CATE uncertainty, sensitivity-analysis bounds, and fairness constraints would be a coherent causal-OR contribution because it contains all three layers: identification, estimation, and optimization.
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+Causal inference and OR meet whenever actions change outcomes. Causal inference provides the language of potential outcomes, treatment effects, policy values, and counterfactual trajectories. OR provides the language of feasibility, constraints, optimality, robustness, and dynamic control. The intersection is therefore a natural extension of data-driven OR rather than a peripheral topic.
+
+This review has organized the field into seven streams: optimization-based causal estimation, heterogeneous treatment-effect estimation, causal resource allocation, empirical welfare maximization and policy learning, causal prescriptive analytics, robust causal optimization, and sequential causal decision making. The literature has made substantial progress, but it remains fragmented. Causal inference papers often emphasize identification and estimation, while OR papers often emphasize optimization under estimated primitives. The most important future contributions will integrate these layers.
+
+For researchers entering the field, causal resource allocation under uncertainty is a promising starting point. It is operationally concrete, mathematically familiar, and causally meaningful. It allows the researcher to combine heterogeneous treatment effects, robust optimization, fairness constraints, and decision regret in a unified framework. More broadly, the field offers a rich agenda for developing decision models that are not only data-driven, but intervention-aware.
+
+\appendix
+
+\section{Representative Literature Map}
+
+Table \ref{tab:lit-map} summarizes representative papers discussed in the review. The table is not intended to be exhaustive; rather, it clarifies how different bodies of work contribute to the causal-OR interface.
+
+\begin{longtable}{p{0.18\textwidth} p{0.25\textwidth} p{0.25\textwidth} p{0.22\textwidth}}
+\caption{Representative literature map for causal inference and operations research.}
+\label{tab:lit-map}\\
+\toprule
+\textbf{Stream} & \textbf{Representative papers} & \textbf{Main contribution} & \textbf{Relevance to causal OR} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Stream} & \textbf{Representative papers} & \textbf{Main contribution} & \textbf{Relevance to causal OR} \\
+\midrule
+\endhead
+Foundational causal inference & \citet{rubin1974estimating}; \citet{holland1986statistics}; \citet{pearl2009causality}; \citet{imbens2015causal}; \citet{hernan2020causal} & Define potential outcomes, causal estimands, structural causal models, and identification logic & Provides the language of interventions, counterfactuals, and policy values \\
+\midrule
+Observational identification & \citet{rosenbaum1983central}; \citet{angrist2009mostly}; \citet{rosenbaum2002observational} & Develop propensity scores, quasi-experimental reasoning, and sensitivity analysis & Clarifies when operational data can support causal decisions \\
+\midrule
+Empirical operations management & \citet{ho2017causal} & Reviews causal inference models in operations management & Links endogeneity and causal identification to OM research questions \\
+\midrule
+Data-driven OR and analytics & \citet{misic2020data}; \citet{choi2018bigdata}; \citet{bertsimas2020predictive} & Reviews and develops data-driven decision models in OR/OM & Provides the prescriptive analytics foundation that causal OR extends \\
+\midrule
+Optimization-based causal estimation & \citet{hainmueller2012entropy}; \citet{abadie2010synthetic}; \citet{cousineau2023optimization} & Uses optimization for weighting, synthetic control, and causal effect estimation & Shows how OR tools improve causal estimation and study design \\
+\midrule
+Experimental design & \citet{kallus2018balance} & Designs experiments through optimal balance criteria & Connects causal identification with minimax and design optimization \\
+\midrule
+Heterogeneous treatment effects & \citet{athey2016recursive}; \citet{wager2018causalforest}; \citet{athey2019grf}; \citet{chernozhukov2018dml}; \citet{shalit2017estimating} & Estimates treatment-effect heterogeneity using trees, forests, orthogonal scores, and representations & Supplies unit-level causal benefit estimates for targeting and allocation \\
+\midrule
+Empirical welfare maximization & \citet{manski2004statistical}; \citet{kitagawa2018treated} & Treats treatment choice as a statistical decision problem and studies regret & Directly connects causal inference to welfare-maximizing treatment rules \\
+\midrule
+Policy learning with observational data & \citet{dudik2011doubly}; \citet{swaminathan2015counterfactual}; \citet{athey2021policy} & Uses inverse-propensity and doubly robust methods for policy evaluation and learning & Supports learning new policies from experimental, observational, or logged data \\
+\midrule
+Individualized treatment regimes & \citet{zhao2012owl}; \citet{qian2011performance}; \citet{zhang2012robust} & Develops methods for treatment rules and performance guarantees & Connects causal targeting with statistical learning and decision rules \\
+\midrule
+Causal prescriptive analytics & \citet{fernandez2022causal}; \citet{leporeni2023causally} & Argues that causal decision making differs from causal effect estimation & Motivates decision-oriented causal modeling rather than effect estimation alone \\
+\midrule
+Interpretable prescriptions & \citet{bertsimas2019optimal} & Constructs optimal prescriptive trees & Provides interpretable policy classes for operational implementation \\
+\midrule
+Decision-focused learning & \citet{elmachtoub2022smart} & Optimizes prediction models for downstream decision loss & Suggests how causal objectives could be integrated with predict-and-optimize pipelines \\
+\midrule
+Robust optimization & \citet{ben2009robust}; \citet{bertsimas2011theory} & Develops uncertainty-set-based optimization models & Provides tools for treatment-effect uncertainty and hidden-confounding robustness \\
+\midrule
+Robust causal optimization & \citet{kallus2018confounding}; \citet{duchi2023drocausal} & Optimizes or estimates under causal ambiguity and unobserved confounding & Bridges sensitivity analysis, partial identification, and robust decision making \\
+\midrule
+Distributionally robust policy learning & \citet{si2020dro}; \citet{duchi2023latent}; \citet{rahimian2019dro}; \citet{kuhn2019wasserstein} & Optimizes worst-case policy value under distributional or subgroup uncertainty & Connects DRO ambiguity sets with policy learning, off-policy evaluation, and robust allocation \\
+\midrule
+Dynamic treatment regimes & \citet{robins1986new}; \citet{murphy2003dynamic} & Defines sequential causal regimes and time-varying treatment strategies & Provides causal foundations for dynamic operational policies \\
+\midrule
+Robust MDPs and dynamic optimization & \citet{iyengar2005robust}; \citet{nilim2005robust}; \citet{wiesemann2013robust}; \citet{sutton2018reinforcement} & Studies sequential decision making under uncertainty and reinforcement learning & Supplies dynamic optimization tools for sequential causal decisions \\
+\bottomrule
+\end{longtable}
+
+\section{Checklist for Future Causal-OR Studies}
+
+A future causal-OR study should make the following elements explicit.
+
+\begin{enumerate}[leftmargin=*]
+    \item \textbf{Operational decision.} The paper should state the decision variable, feasible actions, and implementation constraints.
+    \item \textbf{Causal estimand.} The paper should define whether the target is an average effect, heterogeneous effect, policy value, dose-response function, or dynamic regime value.
+    \item \textbf{Identification strategy.} The paper should explain why the causal quantity is identifiable or how sensitivity to non-identification is handled.
+    \item \textbf{Estimation uncertainty.} The paper should report how sampling error, model uncertainty, or hidden confounding affects the decision.
+    \item \textbf{Optimization formulation.} The paper should present the objective, constraints, and algorithm used to choose actions.
+    \item \textbf{Decision evaluation.} The paper should evaluate regret, welfare, robustness, feasibility, and constraint satisfaction rather than prediction accuracy alone.
+    \item \textbf{Operational interpretation.} The paper should explain how the policy would be implemented and which assumptions are most fragile in practice.
+\end{enumerate}
+
+This checklist is deliberately stricter than a standard causal inference checklist or a standard optimization modeling checklist. The intersection requires both. A paper can be statistically credible but operationally incomplete; it can also be operationally sophisticated but causally invalid. The strongest contributions will satisfy both standards.
+
+\bibliographystyle{apalike}
+\bibliography{references}
+
+\end{document}
